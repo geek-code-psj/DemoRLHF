@@ -1,3 +1,4 @@
+// FORCE REDEPLOY
 import React, { useState, useEffect } from 'react';
 
 const API_BASE = "https://demorlhf.onrender.com";
@@ -32,22 +33,30 @@ const AddPrompt = ({ onPromptAdded }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!text.trim()) return;
+        console.log("Submitting prompt...");
+        if (!text.trim()) {
+            console.log("Prompt text is empty. Aborting.");
+            return;
+        }
         setIsSubmitting(true);
         try {
+            console.log(`Sending POST request to ${API_BASE}/prompts with text:`, text);
             const res = await fetch(`${API_BASE}/prompts`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text })
             });
+            console.log("Received response:", res);
             if (res.ok) {
+                console.log("Prompt added successfully.");
                 setText("");
                 onPromptAdded();
             } else {
+                console.error("Failed to add prompt. Response status:", res.status);
                 throw new Error("Failed to add prompt");
             }
         } catch (err) {
-            console.error(err);
+            console.error("Caught error:", err);
             alert("Error: Could not add prompt.");
         } finally {
             setIsSubmitting(false);

@@ -21,7 +21,7 @@ services:
       - key: GEMINI_API_KEY
         sync: false # Secret - must be set in Render dashboard
       - key: SANDBOX_URL
-        value: http://sandbox-placeholder # Placeholder: The sandbox service is not yet deployed
+        value: http://sandbox:8001 # Points to the sandbox service
 
   # The Airflow Worker - Generates AI responses for new prompts
   - name: airflow-worker
@@ -50,3 +50,19 @@ services:
         value: /opt/render/project/src/backend/dags
       - key: AIRFLOW__CORE__LOAD_EXAMPLES
         value: "false"
+
+  # The Sandbox - Executes code in a secure environment
+  - name: sandbox
+    type: web # Runs as a web service to be accessible via URL
+    env: docker
+    region: oregon
+    repo: https://github.com/geek-code-psj/DemoRLHF.git
+    branch: main
+    rootDir: ./sandbox
+    buildFilter:
+      paths:
+        - "sandbox/**"
+    dockerfilePath: ./sandbox/Dockerfile
+    envVars:
+      - key: PORT
+        value: 8001
