@@ -11,7 +11,10 @@ services:
     buildFilter:
       paths:
         - "backend/**"
-    build: pip install -r requirements.txt
+    build: |
+      pip install -r requirements.txt
+      pip install neon-cli
+      neon ip-allow add 74.220.48.0/24 74.220.56.0/24 --project-id fancy-truth-11807115 --api-key $NEON_API_KEY
     start: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DATABASE_URL
@@ -22,6 +25,8 @@ services:
         sync: false # Secret - must be set in Render dashboard
       - key: SANDBOX_URL
         value: http://sandbox:8001 # Points to the sandbox service
+      - key: NEON_API_KEY
+        sync: false # Secret - must be set in Render dashboard
 
   # The Airflow Worker - Generates AI responses for new prompts
   - name: airflow-worker
