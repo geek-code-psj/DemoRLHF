@@ -7,20 +7,16 @@ services:
     buildFilter:
       paths:
         - "backend/**"
-    buildCommand: |
-      pip install -r requirements.txt
-      pip install neon-cli
-      neon ip-allow add 74.220.48.0/24 74.220.56.0/24 --project-id fancy-truth-11807115 --api-key $NEON_API_KEY
+    buildCommand: "pip install -r requirements.txt"
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: app-db
-          property: connectionString
+        sync: false # Set this to your Neon connection string in the Render dashboard
       - key: SANDBOX_URL
         value: http://sandbox:8001
       - key: NEON_API_KEY
-        sync: false
+        sync: false # Not strictly needed for deployment, but good practice
+
   - name: sandbox
     type: web
     env: docker
