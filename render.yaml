@@ -1,0 +1,52 @@
+
+services:
+  # The Backend API (FastAPI) - Handles requests from the frontend
+  - name: backend
+    type: web
+    env: python
+    region: oregon 
+    repo: https://github.com/geek-code-psj/DemoRLHF.git
+    branch: main
+    rootDir: ./backend
+    buildFilter:
+      paths:
+        - "backend/**"
+    build: pip install -r requirements.txt
+    start: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: demorlhf-db # Your Neon DB on Render
+          property: connectionString
+      - key: GEMINI_API_KEY
+        sync: false # Secret - must be set in Render dashboard
+      - key: SANDBOX_URL
+        value: http://sandbox-placeholder # Placeholder: The sandbox service is not yet deployed
+
+  # The Airflow Worker - Generates AI responses for new prompts
+  - name: airflow-worker
+    type: worker
+    env: python
+    region: oregon
+    repo: https://github.com/geek-code-psj/DemoRLHF.git
+    branch: main
+    rootDir: ./backend
+    buildFilter:
+      paths:
+        - "backend/**"
+    build: pip install -r requirements.txt
+    start: airflow scheduler
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: demorlhf-db # Your Neon DB on Render
+          property: connectionString
+      - key: GEMINI_API_KEY
+        sync: false # Secret - must be set in Render dashboard
+      # --- Airflow specific settings ---
+      - key: AIRFLOW_HOME
+        value: /opt/render/project/src/backend/airflow
+      - key: AIRFLOW__CORE__DAGS_FOLDER
+        value: /opt/render/project/src/backend/dags
+      - key: AIRFLOW__CORE__LOAD_EXAMPLES
+        value: "false"
