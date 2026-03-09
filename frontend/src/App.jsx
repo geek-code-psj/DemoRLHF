@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const API_BASE = "https://demorlhf.onrender.com";
+const API_BASE = "http://localhost:8000";
 
 const StatBox = ({ label, value }) => (
     <div style={{ textAlign: 'center' }}>

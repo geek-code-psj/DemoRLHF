@@ -7,11 +7,11 @@ services:
     buildFilter:
       paths:
         - "backend/**"
-    build: |
+    buildCommand: |
       pip install -r requirements.txt
       pip install neon-cli
       neon ip-allow add 74.220.48.0/24 74.220.56.0/24 --project-id fancy-truth-11807115 --api-key $NEON_API_KEY
-    start: uvicorn main:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DATABASE_URL
         fromDatabase:
