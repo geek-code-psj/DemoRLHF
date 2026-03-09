@@ -1,5 +1,5 @@
-from fastapi import FastAPI, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import FastAPI, Depends, HTTPException, Body
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 import models
 import httpx
@@ -54,6 +54,9 @@ class PromptSchema(BaseModel):
     class Config:
         from_attributes = True
 
+class PromptCreate(BaseModel):
+    text: str
+
 class RatingCreate(BaseModel):
     response_id: int
     score: int
@@ -83,14 +86,36 @@ def read_root():
 @app.get("/prompts/next", response_model=Optional[PromptSchema])
 def get_next_prompt(db: Session = Depends(get_db)):
     # Get a prompt that has responses but where not all responses have been rated
-    prompts = db.query(models.Prompt).join(models.Response).all()
+    prompts = db.query(models.Prompt).options(joinedload(models.Prompt.responses)).all()
     for prompt in prompts:
-        rated_ids = {r.response_id for resp in prompt.responses for r in resp.ratings}
-        unrated = [r for r in prompt.responses if r.id not in rated_ids]
-        if unrated:
+        rated_response_ids = {r.response_id for r in db.query(models.Rating).all()}
+        unrated_responses = [resp for resp in prompt.responses if resp.id not in rated_response_ids]
+        if unrated_responses:
             return prompt
-    # Fallback: return first prompt with responses
-    return db.query(models.Prompt).join(models.Response).first()
+    return None
+
+@app.get("/prompts", response_model=List[PromptSchema])
+def get_all_prompts(db: Session = Depends(get_db)):
+    return db.query(models.Prompt).options(
+        joinedload(models.Prompt.responses).joinedload(models.Response.execution_result)
+    ).order_by(models.Prompt.id.desc()).all()
+
+@app.post("/prompts", response_model=PromptSchema)
+def create_prompt(prompt: PromptCreate, db: Session = Depends(get_db)):
+    db_prompt = models.Prompt(text=prompt.text)
+    db.add(db_prompt)
+    db.commit()
+    db.refresh(db_prompt)
+    return db_prompt
+
+@app.delete("/prompts/{prompt_id}")
+def delete_prompt(prompt_id: int, db: Session = Depends(get_db)):
+    prompt = db.query(models.Prompt).filter(models.Prompt.id == prompt_id).first()
+    if not prompt:
+        raise HTTPException(status_code=404, detail="Prompt not found")
+    db.delete(prompt)
+    db.commit()
+    return {"status": "success", "message": f"Prompt {prompt_id} deleted"}
 
 @app.post("/ratings")
 def create_rating(rating: RatingCreate, db: Session = Depends(get_db)):
