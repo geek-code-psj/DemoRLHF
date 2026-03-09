@@ -51,6 +51,13 @@ function App() {
     const [execResults, setExecResults] = useState({});   // { [responseId]: result|null }
     const [execLoading, setExecLoading] = useState({});   // { [responseId]: bool }
     const [showOutput, setShowOutput] = useState({});     // { [responseId]: bool }
+    const [showAddPrompt, setShowAddPrompt] = useState(false);
+    const [newPromptText, setNewPromptText] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showHistory, setShowHistory] = useState(false);
+    const [history, setHistory] = useState([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
+
 
     const fetchNext = async () => {
         setLoading(true);
@@ -108,6 +115,45 @@ function App() {
         }
     };
 
+    const handleAddPrompt = async () => {
+        if (!newPromptText.trim()) return;
+        setIsSubmitting(true);
+        try {
+            await fetch(`${API_BASE}/prompts`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: newPromptText })
+            });
+            setNewPromptText("");
+            setShowAddPrompt(false);
+            fetchNext(); // Refresh to get a new prompt
+        } catch (err) {
+            console.error("Failed to add prompt", err);
+            alert("Error adding prompt. See console for details.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const fetchHistory = async () => {
+        setHistoryLoading(true);
+        try {
+            const res = await fetch(`${API_BASE}/prompts/all`); // Assuming this endpoint exists
+            const data = await res.json();
+            setHistory(data);
+        } catch (err) {
+            console.error("Failed to fetch history", err);
+        } finally {
+            setHistoryLoading(false);
+        }
+    };
+
+    const handleShowHistory = () => {
+        setShowHistory(true);
+        fetchHistory();
+    }
+
+
     useEffect(() => { fetchNext(); }, []);
 
     if (loading) return (
@@ -121,31 +167,80 @@ function App() {
             <h1 className="neon-text">All caught up!</h1>
             <p style={{ color: 'var(--text-secondary)', marginTop: '20px' }}>No more prompts to rank right now.</p>
             <button className="btn btn-primary" style={{ margin: '20px auto', display: 'block' }} onClick={fetchNext}>Refresh</button>
+            <button className="btn btn-secondary" style={{ margin: '20px auto', display: 'block' }} onClick={() => setShowAddPrompt(true)}>+ Add New Prompt</button>
         </div>
     );
 
     return (
         <div className="dashboard">
+            {/* ── Add Prompt Modal ─────────────────────────────────────────────── */}
+            {showAddPrompt && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+                    <div className="glass-card" style={{ padding: '2rem', width: '90%', maxWidth: '600px' }}>
+                        <h2 className="neon-text">Add New Prompt</h2>
+                        <textarea
+                            value={newPromptText}
+                            onChange={(e) => setNewPromptText(e.target.value)}
+                            placeholder="Enter the new prompt challenge here..."
+                            style={{ width: '100%', minHeight: '150px', margin: '1rem 0', background: 'rgba(0,0,0,0.3)', color: '#fff', border: '1px solid #444', borderRadius: '8px', padding: '1rem', fontSize: '1rem' }}
+                        />
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                            <button className="btn btn-outline" onClick={() => setShowAddPrompt(false)}>Cancel</button>
+                            <button className="btn btn-primary" onClick={handleAddPrompt} disabled={isSubmitting}>
+                                {isSubmitting ? 'Submitting...' : 'Submit Prompt'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+             {/* -- History Modal -- */}
+             {showHistory && (
+                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+                    <div className="glass-card" style={{ padding: '2rem', width: '90%', maxWidth: '800px', maxHeight: '80vh', overflowY: 'auto' }}>
+                         <h2 className="neon-text">Prompt History</h2>
+                         {historyLoading ? (
+                             <p>Loading history...</p>
+                         ) : (
+                            <ul style={{listStyle: 'none', padding: 0}}>
+                                {history.map(p => (
+                                    <li key={p.id} style={{borderBottom: '1px solid #444', padding: '1rem 0'}}>
+                                        <p>{p.text}</p>
+                                        <small style={{color: 'var(--text-secondary)'}}>
+                                            ID: {p.id}
+                                        </small>
+                                    </li>
+                                ))}
+                            </ul>
+                         )}
+                         <button className="btn btn-outline" onClick={() => setShowHistory(false)} style={{marginTop: '1rem'}}>Close</button>
+                    </div>
+                </div>
+            )}
+
             {/* ── Header ─────────────────────────────────────────────────────────── */}
             <header className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                     <h1 className="neon-text" style={{ fontSize: '1.5rem', marginBottom: '2px' }}>RLHF Pipeline</h1>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Human-in-the-loop Evaluation Dashboard</div>
                 </div>
-                <div className="glass-card" style={{ padding: '8px 20px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                    <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '0.55rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Ranked</div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: '800' }}>{stats.total_ratings}</div>
+                <div style={{display: 'flex', alignItems: 'center', gap: '20px'}}>
+                    <button className="btn btn-secondary" onClick={handleShowHistory}>History</button>
+                    <button className="btn btn-primary" onClick={() => setShowAddPrompt(true)}>+ Add Prompt</button>
+                    <div className="glass-card" style={{ padding: '8px 20px', display: 'flex', alignItems: 'center', gap: '20px' }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.55rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Ranked</div>
+                            <div style={{ fontSize: '1.1rem', fontWeight: '800' }}>{stats.total_ratings}</div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.55rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Executed</div>
+                            <div style={{ fontSize: '1.1rem', fontWeight: '800' }}>{stats.total_executions}</div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.55rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Total</div>
+                            <div style={{ fontSize: '1.1rem', fontWeight: '800' }}>{stats.total_prompts}</div>
+                        </div>
+                        <button className="btn btn-outline" style={{ padding: '6px 14px', fontSize: '0.75rem' }} onClick={fetchNext}>Sync</button>
                     </div>
-                    <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '0.55rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Executed</div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: '800' }}>{stats.total_executions}</div>
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '0.55rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Total</div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: '800' }}>{stats.total_prompts}</div>
-                    </div>
-                    <button className="btn btn-outline" style={{ padding: '6px 14px', fontSize: '0.75rem' }} onClick={fetchNext}>Sync</button>
                 </div>
             </header>
 
