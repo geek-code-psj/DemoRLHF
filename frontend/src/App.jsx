@@ -137,7 +137,7 @@ function App() {
 
     if (loading && !prompts.length) return (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-            <div className="neon-text" style={{ fontSize: '2rem' }}>Initializing AI Pipeline...</div>
+            <div className="neon-text" style={{ fontSize: '2rem' }}>Connecting to RLHF Pipeline...</div>
         </div>
     );
 
