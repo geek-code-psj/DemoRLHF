@@ -14,8 +14,6 @@ services:
         sync: false # Set this to your Neon connection string in the Render dashboard
       - key: SANDBOX_URL
         value: http://sandbox:8001
-      - key: NEON_API_KEY
-        sync: false # Not strictly needed for deployment, but good practice
 
   - name: sandbox
     type: web
