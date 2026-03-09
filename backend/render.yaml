@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: rlhf-api
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        sync: false   # Set in Render dashboard from Neon connection string
+      - key: SANDBOX_URL
+        value: ""     # Sandbox runs locally — not accessible from cloud
