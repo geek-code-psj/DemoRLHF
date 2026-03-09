@@ -4,7 +4,7 @@ services:
   - name: backend
     type: web
     env: python
-    region: oregon 
+    region: oregon
     repo: https://github.com/geek-code-psj/DemoRLHF.git
     branch: main
     rootDir: ./backend
