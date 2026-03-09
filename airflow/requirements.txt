@@ -1,4 +1,0 @@
-google-generativeai
-openai
-psycopg2-binary
-sqlalchemy

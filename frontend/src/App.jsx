@@ -1,9 +1,6 @@
-// FORCE REDEPLOY
 import React, { useState, useEffect } from 'react';
 
 const API_BASE = "https://demorlhf.onrender.com";
-
-// ── Small Components ─────────────────────────────────────────────────────────
 
 const StatBox = ({ label, value }) => (
     <div style={{ textAlign: 'center' }}>
@@ -15,11 +12,10 @@ const StatBox = ({ label, value }) => (
 const Header = ({ stats, onRefresh }) => (
     <header className="dashboard-header">
         <div>
-            <h1 className="neon-text" style={{ fontSize: '1.5rem', marginBottom: '2px' }}>RLHF Pipeline</h1>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Human-in-the-loop Evaluation Dashboard</div>
+            <h1 className="neon-text" style={{ fontSize: '1.5rem', marginBottom: '2px' }}>Dashboard</h1>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Evaluation Dashboard</div>
         </div>
         <div className="glass-card" style={{ padding: '8px 20px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-            <StatBox label="Ranked" value={stats.total_ratings} />
             <StatBox label="Executed" value={stats.total_executions} />
             <StatBox label="Total Prompts" value={stats.total_prompts} />
             <button className="btn btn-outline" style={{ padding: '6px 14px', fontSize: '0.75rem' }} onClick={onRefresh}>Sync</button>
@@ -33,30 +29,21 @@ const AddPrompt = ({ onPromptAdded }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        console.log("Submitting prompt...");
-        if (!text.trim()) {
-            console.log("Prompt text is empty. Aborting.");
-            return;
-        }
+        if (!text.trim()) return;
         setIsSubmitting(true);
         try {
-            console.log(`Sending POST request to ${API_BASE}/prompts with text:`, text);
             const res = await fetch(`${API_BASE}/prompts`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text })
             });
-            console.log("Received response:", res);
             if (res.ok) {
-                console.log("Prompt added successfully.");
                 setText("");
                 onPromptAdded();
             } else {
-                console.error("Failed to add prompt. Response status:", res.status);
                 throw new Error("Failed to add prompt");
             }
         } catch (err) {
-            console.error("Caught error:", err);
             alert("Error: Could not add prompt.");
         } finally {
             setIsSubmitting(false);
@@ -82,7 +69,7 @@ const AddPrompt = ({ onPromptAdded }) => {
     );
 };
 
-const PromptList = ({ prompts, onSelectPrompt, onDeletePrompt }) => (
+const PromptList = ({ prompts, onSelectPrompt, onDeletePrompt, onExecutePrompt }) => (
     <div className="glass-card" style={{ marginTop: '2rem', padding: '1rem' }}>
         <h2 className="neon-text">Prompts</h2>
         <ul style={{ listStyle: 'none', padding: 0, marginTop: '1rem' }}>
@@ -90,8 +77,9 @@ const PromptList = ({ prompts, onSelectPrompt, onDeletePrompt }) => (
                 <li key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.8rem 0.5rem', borderBottom: '1px solid #333' }}>
                     <span style={{ flexGrow: 1 }}>{p.text}</span>
                     <div style={{ display: 'flex', gap: '10px' }}>
-                       <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{p.responses?.length || 0} responses</span>
+                       <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{p.execution_result ? 'Executed' : 'Not Executed'}</span>
                        <button className="btn btn-secondary" onClick={() => onSelectPrompt(p.id)}>View</button>
+                       <button className="btn btn-primary" onClick={() => onExecutePrompt(p.id)}>Execute</button>
                        <button className="btn btn-outline" style={{color: '#ff6b6b'}} onClick={() => onDeletePrompt(p.id)}>Delete</button>
                     </div>
                 </li>
@@ -100,11 +88,34 @@ const PromptList = ({ prompts, onSelectPrompt, onDeletePrompt }) => (
     </div>
 );
 
-// ── Main App ──────────────────────────────────────────────────────────────────
+const ExecutionResultView = ({ result }) => {
+    if (!result) return <div className="neon-text">This prompt has not been executed yet.</div>;
+
+    return (
+        <div className="glass-card" style={{ padding: '1rem', marginTop: '1rem' }}>
+            <h3 className="neon-text">Execution Result</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                    <h4>STDOUT</h4>
+                    <pre style={{ background: '#111', padding: '0.5rem', borderRadius: '4px', whiteSpace: 'pre-wrap' }}>{result.stdout || 'empty'}</pre>
+                </div>
+                <div>
+                    <h4>STDERR</h4>
+                    <pre style={{ background: '#111', padding: '0.5rem', borderRadius: '4px', color: '#ff6b6b', whiteSpace: 'pre-wrap' }}>{result.stderr || 'empty'}</pre>
+                </div>
+            </div>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                <StatBox label="Exit Code" value={result.exit_code} />
+                <StatBox label="Tests Passed" value={result.tests_passed} />
+                <StatBox label="Tests Failed" value={result.tests_failed} />
+            </div>
+        </div>
+    );
+};
 
 function App() {
     const [prompts, setPrompts] = useState([]);
-    const [stats, setStats] = useState({ total_prompts: 0, total_ratings: 0, total_executions: 0 });
+    const [stats, setStats] = useState({ total_prompts: 0, total_executions: 0 });
     const [loading, setLoading] = useState(true);
     const [selectedPrompt, setSelectedPrompt] = useState(null);
 
@@ -127,7 +138,7 @@ function App() {
     };
 
     const handlePromptAdded = () => {
-        fetchData(); // Refetch all data
+        fetchData();
     };
 
     const handleDeletePrompt = async (promptId) => {
@@ -136,29 +147,35 @@ function App() {
                 await fetch(`${API_BASE}/prompts/${promptId}`, { method: 'DELETE' });
                 fetchData();
             } catch (err) {
-                console.error("Failed to delete prompt", err);
                 alert("Could not delete the prompt.");
             }
         }
-    }
+    };
+
+    const handleExecutePrompt = async (promptId) => {
+        try {
+            await fetch(`${API_BASE}/execute/${promptId}`, { method: 'POST' });
+            fetchData();
+        } catch (err) {
+            alert("Could not execute the prompt.");
+        }
+    };
 
     useEffect(() => { fetchData(); }, []);
 
     if (loading && !prompts.length) return (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-            <div className="neon-text" style={{ fontSize: '2rem' }}>Connecting to RLHF Pipeline...</div>
+            <div className="neon-text" style={{ fontSize: '2rem' }}>Connecting to Pipeline...</div>
         </div>
     );
 
     if (selectedPrompt) {
-        // This part needs to be its own component to handle the detailed view
-        // For now, let's just placeholder it.
         return (
             <div className="dashboard">
                  <Header stats={stats} onRefresh={fetchData} />
                  <button className="btn btn-outline" onClick={() => setSelectedPrompt(null)} style={{margin: '2rem 0'}}>← Back to List</button>
                  <h2 className="neon-text">{selectedPrompt.text}</h2>
-                 {/* TODO: Build out the detailed prompt view here */}
+                 <ExecutionResultView result={selectedPrompt.execution_result} />
             </div>
         )
     }
@@ -174,7 +191,7 @@ function App() {
                     <p>Get started by adding your first prompt above.</p>
                 </div>
             ) : (
-                <PromptList prompts={prompts} onSelectPrompt={(id) => setSelectedPrompt(prompts.find(p=>p.id === id))} onDeletePrompt={handleDeletePrompt} />
+                <PromptList prompts={prompts} onSelectPrompt={(id) => setSelectedPrompt(prompts.find(p=>p.id === id))} onDeletePrompt={handleDeletePrompt} onExecutePrompt={handleExecutePrompt} />
             )}
         </div>
     );
